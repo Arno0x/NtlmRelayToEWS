@@ -45,7 +45,7 @@ Defines a folder home page (*usually for the Inbox folder*) by specifying a URL.
 How to get the victim to give you their credentials for relaying ?
 ----------------------
 In order to get the victim to send his credentials to ntlmRelayToEWS you can use any of the following well known methods:
-  - Send the victim an e-mail with a hidden picture which 'src' attribute points to the ntlmRelayToEWS server, using either HTTP or SMB
+  - Send the victim an e-mail with a hidden picture which 'src' attribute points to the ntlmRelayToEWS server, using either HTTP or SMB. Check the `Invoke-SendEmail.ps1` script to achieve this.
   - Create a link file which 'icon' attribute points to the ntlmRelayToEWS using a UNC path and let victim browse a folder with this link
   - Perform LLMNR, NBNS or WPAD poisonning (*think of Responder.py or Invoke-Inveigh for instance*) to get any corresponding SMB or HTTP trafic from the victim sent to ntlmRelayToEWS
   - other ?
