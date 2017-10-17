@@ -3,7 +3,7 @@
 #
 # Author: Arno0x0x, Twitter: @Arno0x0x
 #
-# This work is based on the Impacket/NTLMRelayx
+# This work is based on Impacket/NTLMRelayx
 
 import argparse
 import sys
@@ -172,6 +172,7 @@ if __name__ == '__main__':
 	parser.add_argument("-v","--verbose", action="store_true", help='Increase output verbositys')
 	parser.add_argument('-t',"--target", action='store', required=True, metavar = 'TARGET', help='EWS web service target to relay the credentials to, '
 		          'in the form of a URL: https://EWSServer/EWS/exchange.asmx')
+	parser.add_argument("-o", "--output-file", action="store", help="Base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2")
 	parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when '
 		                'interacting with the domain to grab a session key for signing, format is domain/machine_name')
 	parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
@@ -268,6 +269,7 @@ if __name__ == '__main__':
 		#Set up config
 		c = NTLMRelayxConfig()
 		c.setTargets(targetSystem)
+		c.setOutputFile(args.output_file)
 		c.setEWSParameters(body, args.request, args.folder or None, args.destAddresses or None, args.url or None)
 		c.setMode('RELAY')
 		c.setAttacks(ATTACKS)
