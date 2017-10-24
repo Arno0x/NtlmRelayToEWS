@@ -20,6 +20,7 @@ from httplib import HTTPConnection, HTTPSConnection, ResponseNotReady
 import base64
 
 class HTTPRelayClient:
+	#-------------------------------------------------------------------------------
     def __init__(self, target, body):
         # Target comes as protocol://target:port/path
         self.target = target
@@ -30,7 +31,8 @@ class HTTPRelayClient:
         if proto.lower() == 'https':
             #Create unverified (insecure) context
             try:
-                uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                #uv_context = ssl.SSLContext(ssl.PROTOCOL_SSLv23)
+                uv_context = ssl.create_default_context()
                 self.session = HTTPSConnection(host,context=uv_context)
             except AttributeError:
                 #This does not exist on python < 2.7.11
@@ -39,9 +41,14 @@ class HTTPRelayClient:
             self.session = HTTPConnection(host)
         self.lastresult = None
 
+	#-------------------------------------------------------------------------------
     def sendNegotiate(self,negotiateMessage):
-        #Check if server wants auth
-		self.session.request('POST', self.path, self.body, {"Content-Type":"text/xml"})
+		#Check if server wants auth
+		if self.body is not None:
+			self.session.request('POST', self.path, self.body, {"Content-Type":"text/xml"})
+		else:
+			self.session.request('GET', self.path)
+
 		res = self.session.getresponse()
 		res.read()
 		if res.status != 401:
@@ -56,8 +63,13 @@ class HTTPRelayClient:
 
 		#Negotiate auth
 		negotiate = base64.b64encode(negotiateMessage)
-		headers = {'Authorization':'NTLM %s' % negotiate, "Content-Type":"text/xml"}
-		self.session.request('POST', self.path, self.body, headers=headers)
+		if self.body is not None:
+			headers = {'Authorization':'NTLM %s' % negotiate, "Content-Type":"text/xml"}
+			self.session.request('POST', self.path, self.body, headers=headers)
+		else:
+			headers = {'Authorization':'NTLM %s' % negotiate}
+			self.session.request('GET', self.path, headers=headers)
+
 		res = self.session.getresponse()
 		res.read()
 		try:
@@ -67,11 +79,17 @@ class HTTPRelayClient:
 		except (IndexError, KeyError, AttributeError):
 			logging.error('No NTLM challenge returned from server')
 
+	#-------------------------------------------------------------------------------
     def sendAuth(self,authenticateMessageBlob, serverChallenge=None):
 		#Negotiate auth
 		auth = base64.b64encode(authenticateMessageBlob)
-		headers = {'Authorization':'NTLM %s' % auth, "Content-Type":"text/xml"}
-		self.session.request('POST', self.path, self.body, headers=headers)
+		if self.body is not None:
+			headers = {'Authorization':'NTLM %s' % auth, "Content-Type":"text/xml"}
+			self.session.request('POST', self.path, self.body, headers=headers)
+		else:
+			headers = {'Authorization':'NTLM %s' % auth}
+			self.session.request('GET', self.path, headers=headers)
+			
 		res = self.session.getresponse()
 		if res.status == 401:
 			return False
@@ -81,6 +99,7 @@ class HTTPRelayClient:
 			self.lastresult = res.read()
 			return True
 
+	#-------------------------------------------------------------------------------
     #SMB Relay server needs this
     @staticmethod
     def get_encryption_key():

