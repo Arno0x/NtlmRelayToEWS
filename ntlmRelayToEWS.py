@@ -97,7 +97,8 @@ class EWSAttack(Thread):
 					mimeContent = itemXML.find(".//t:MimeContent", exchangeNamespace).text
 
 					try:
-						fileName = outputDir + "/item-{}.eml".format(i)
+						extension = "vcf" if self.config.ewsFolder == "contacts" else "eml"
+						fileName = outputDir + "/item-{}.".format(i) + extension
 						with open(fileName, 'w+') as fileHandle:
 							fileHandle.write(b64decode(mimeContent))
 							fileHandle.close()
@@ -212,7 +213,7 @@ if __name__ == '__main__':
 						' Must be separated by a comma.')
 	parser.add_argument("-m","--message", action="store", help='Message File containing the body of the message as an HTML file')
 	parser.add_argument("-s","--subject", action="store", help='Message subject')
-	parser.add_argument("-f","--folder", action="store", choices=['inbox', 'sentitem', 'deleteditems', 'tasks','calendar'], help='The Exchange folder name to list')
+	parser.add_argument("-f","--folder", action="store", choices=['inbox', 'sentitem', 'deleteditems', 'tasks','calendar','contacts'], help='The Exchange folder name to list')
 	parser.add_argument("-u","--url", action="store", help='URL to be used for the setHomePage request')
 
 	try:
